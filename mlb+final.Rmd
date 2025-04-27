@@ -1,0 +1,147 @@
+---
+title: "R Notebook"
+output: html_notebook
+---
+```{r}
+
+```
+
+This is an [R Markdown](http://rmarkdown.rstudio.com) Notebook. When you execute code within the notebook, the results appear beneath the code. 
+
+Try executing this chunk by clicking the *Run* button within the chunk or by placing your cursor inside it and pressing *Ctrl+Shift+Enter*. 
+
+```{r}
+plot(cars)
+```
+
+Add a new chunk by clicking the *Insert Chunk* button on the toolbar or by pressing *Ctrl+Alt+I*.
+
+When you save the notebook, an HTML file containing the code and output will be saved alongside it (click the *Preview* button or press *Ctrl+Shift+K* to preview the HTML file).
+
+The preview shows you a rendered HTML copy of the contents of the editor. Consequently, unlike *Knit*, *Preview* does not run any R code chunks. Instead, the output of the chunk when it was last run in the editor is displayed.
+```{r}
+
+```
+
+```{r}
+quartiles <- quantile(EnergyEfficiency$Cooling_Load, probs = c(0, 0.25, 0.5, 0.75, 1))
+EnergyEfficiency$category <- cut(EnergyEfficiency$Cooling_Load, breaks = quartiles, labels = c("D", "C", "B", "A"))
+View(EnergyEfficiency)
+```
+```{r}
+
+EnergyEfficiency$category <- as.factor(EnergyEfficiency$category)
+index <- sample(nrow(EnergyEfficiency), 0.7 * nrow(EnergyEfficiency) ,replace = FALSE)
+train <- EnergyEfficiency[index, ]
+test <- EnergyEfficiency[-index, ]
+
+svm_model <- svm(category ~ ., data = train, kernel = "radial")
+print(svm_model)
+summary(svm_model)
+
+predictions <- predict(svm_model, newdata = test)
+
+#conf_matrix <- confusionMatrix(predictions, test$category)
+#print(conf_matrix)
+
+accuracy <- sum(predictions == test$category) / nrow(test)
+print(accuracy)
+
+plot(svm_model, train, Surface_Area ~Wall_Area, slice = list(Relative_Compactness=0.98, Roof_Area=110.25, Overall_Height=7.00,Orientation=5,Glazing_Area=0,Glazing_Area_Distribution=0,NorthOr=1, eastOr=0, southOr=1, Uniform=1,North=1,East=0,South=0,West=0,Cooling_Load=41.07))
+
+```
+```{r}
+quartiles <- quantile(EnergyEfficiency$Cooling_Load, probs = c(0, 0.25, 0.5, 0.75, 1))
+EnergyEfficiency$category <- cut(EnergyEfficiency$Cooling_Load, breaks = quartiles, labels = c("D", "C", "B", "A"))
+View(EnergyEfficiency)
+# Load necessary library
+#install.packages("neuralnet")
+library(neuralnet)
+
+# Split the dataset into training and testing sets
+ # for reproducibility
+indices <- sample(1:nrow(EnergyEfficiency), size = 0.7 * nrow(EnergyEfficiency))
+train_data <- EnergyEfficiency[indices, ]
+test_data <- EnergyEfficiency[-indices, ]
+
+# Initialize a vector to store accuracies
+accuracies <- numeric(5)
+
+# Define the range of hidden nodes
+hidden_nodes <- 1:5
+
+# Train neural network models for each number of hidden nodes
+for (n_hidden in hidden_nodes) {
+  # Define formula for the neural network
+  #formula <- as.formula("cooling_load ~ .")
+  #if (!is.numeric(neurons[[i]]) || !is.numeric(weights[[i]])) {
+  #stop("Both operands must be numeric.")
+
+  # Train neural network model
+  nn_model <- neuralnet(train_data$Cooling_Load~Relative_Compactness+Surface_Area+Wall_Area+Roof_Area+Overall_Height+Orientation+Glazing_Area+Cooling_Load+Uniform+North+East+South+West, data = train_data, hidden = c(n_hidden))
+  
+  # Make predictions on the test set
+  predictions <- predict(nn_model, test_data)
+  
+  # Calculate accuracy (e.g., using mean squared error)
+  accuracy <- mean((predictions - test_data$Cooling_Load)^2)
+  
+  # Store accuracy in the vector
+  accuracies[n_hidden] <- accuracy
+
+
+# Report accuracies for all five models
+print(accuracies)
+
+
+
+ 
+
+}
+
+```
+```{r}
+library(neuralnet)
+
+
+##normalise the data
+normalize <- function(x) {return((x-min(x))/(max(x)-min(x)))}
+#Denormalize function
+denormalize <- function(y,x){return(y*(max(x)-min(x))+min(x))}
+
+
+Energysubset <- EnergyEfficiency[ , c("Cooling_Load","Relative_Compactness" , "Surface_Area", "Wall_Area", "Overall_Height", "Glazing_Area")] 
+
+Energynorm <- as.data.frame(lapply(Energysubset,normalize))
+
+#train and test data 
+set.seed(7)
+energy_index <- sample(nrow(Energynorm), 0.8 * nrow(Energynorm),replace = FALSE)
+energy_train <- Energynorm[energy_index, ]
+energy_test <- Energynorm[-energy_index, ]
+
+
+
+#Single layer neural network loop: loop from 1 to 5 nodes
+cur_max_list <- list()
+for (layer_one in 1:5){
+  energy_model <- neuralnet(Cooling_Load ~. ,
+                             data=energy_train, hidden=layer_one, lifesign="minimal", linear.output=TRUE,
+                             threshold=0.1,stepmax=1e7)
+  energy_results <- compute(energy_model, energy_test)
+  energydenorm <- denormalize(energy_results$net.result, energysubset$Cooling_Load)
+  actualenergy <- energysubset$Cooling_Load[-energy_index]
+  energynet_correlation <- cor(energydenorm,actualenergy)
+  print(energynet_correlation)
+  #plot(energy_model)
+  cur_max_list[paste(layer_one)] <- energynet_correlation
+  
+}
+cur_max_list[which.max(sapply(cur_max_list,max))]
+plot(energy_model)
+
+
+```
+
+
+
